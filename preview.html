@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air Draw — Gesture-Based Doodler</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Dancing+Script:wght@700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:#e0e0e0;font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100vh;cursor:none}
+
+  .app-container{position:relative;width:100vw;height:100vh;background:#111}
+
+  /* Simulated webcam bg */
+  .webcam-bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 30%,#1a1a2e 60%,#0f0f1a 100%);z-index:0}
+  .webcam-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 40% 50%,rgba(40,40,70,0.4) 0%,transparent 70%)}
+
+  #drawCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+
+  /* Camera ON badge */
+  .camera-badge{position:absolute;top:16px;left:16px;z-index:10;background:rgba(0,0,0,0.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:500;color:#ccc;display:flex;align-items:center;gap:8px}
+  .camera-badge::before{content:'';width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  /* Right sidebar */
+  .sidebar{position:absolute;top:50%;right:16px;transform:translateY(-50%);z-index:10;background:rgba(20,20,25,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:14px;width:178px}
+  .sidebar-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#888;width:100%;text-align:center}
+
+  .color-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;justify-items:center}
+  .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all .15s;position:relative}
+  .color-dot:hover{transform:scale(1.2)}
+  .color-dot.active{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,0.3);transform:scale(1.15)}
+
+  .neon-star{font-size:28px;cursor:default;filter:drop-shadow(0 0 6px currentColor)}
+
+  .slider-section{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .slider-track{width:80%;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;position:relative;cursor:pointer}
+  .slider-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 4px rgba(255,255,255,0.4);cursor:grab}
+  .slider-thumb:hover{box-shadow:0 0 10px rgba(255,255,255,0.6)}
+  .slider-value{font-size:11px;color:#666}
+
+  .sidebar-divider{width:80%;height:1px;background:rgba(255,255,255,0.07)}
+
+  .icon-btn{width:42px;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#999;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:18px}
+  .icon-btn:hover{background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.15)}
+  .icon-btn.active-btn{background:rgba(80,220,160,0.12);color:#4ade80;border-color:rgba(80,220,160,0.3)}
+  .icon-row{display:flex;flex-direction:column;gap:8px;width:100%;align-items:center}
+
+  /* Bottom toggle */
+  .bottom-toggle{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(20,20,25,0.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:30px;padding:10px 24px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;letter-spacing:1px;color:#bbb;cursor:pointer;transition:all .2s;text-transform:uppercase}
+  .bottom-toggle:hover{background:rgba(30,30,35,0.85);color:#fff}
+  .bottom-toggle .hand-emoji{font-size:20px}
+
+  /* Cursor */
+  .cursor-glow{position:fixed;pointer-events:none;z-index:100;border-radius:50%;transform:translate(-50%,-50%);transition:width .1s,height .1s,background .15s,box-shadow .15s}
+
+  /* Onboarding modal */
+  .modal-overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;transition:opacity .4s}
+  .modal-overlay.hidden{opacity:0;pointer-events:none}
+  .modal-card{background:rgba(28,28,32,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:40px 48px;max-width:520px;width:90%;text-align:center}
+  .modal-logo{font-family:'Dancing Script',cursive;font-size:48px;color:#e0e0e0;margin-bottom:8px}
+  .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:28px}
+  .gesture-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
+  .gesture-card{display:flex;align-items:flex-start;gap:12px;text-align:left}
+  .g-emoji{font-size:28px;width:44px;height:44px;background:rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .g-name{font-size:15px;font-weight:600;color:#fff;margin-bottom:2px}
+  .g-desc{font-size:12px;color:#888;line-height:1.4}
+  .modal-btn{background:rgba(255,255,255,0.9);color:#111;border:none;border-radius:30px;padding:14px 48px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+  .modal-btn:hover{background:#fff;transform:scale(1.03);box-shadow:0 4px 20px rgba(255,255,255,0.15)}
+
+  /* Flash message */
+  .flash-msg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:700;pointer-events:none;z-index:40;opacity:0;transition:opacity .3s;text-shadow:0 0 20px currentColor,0 0 40px currentColor}
+  .flash-msg.visible{opacity:1}
+
+  /* Mode label */
+  .mode-label{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:10;font-size:12px;font-weight:500;color:rgba(255,255,255,0.45);background:rgba(0,0,0,0.3);backdrop-filter:blur(8px);padding:6px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.06)}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="webcam-bg"></div>
+  <canvas id="drawCanvas"></canvas>
+
+  <div class="camera-badge">Camera ON</div>
+  <div class="mode-label">Preview Mode — Use mouse to draw</div>
+
+  <!-- Right sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-label">COLORS</div>
+    <div class="color-grid" id="colorGrid"></div>
+
+    <div class="sidebar-label" style="margin-top:4px">THICKNESS</div>
+    <div class="neon-star" id="neonStar">&#10040;</div>
+    <div class="slider-section">
+      <div class="slider-track" id="thicknessTrack">
+        <div class="slider-thumb" id="thicknessThumb" style="left:25%"></div>
+      </div>
+      <div class="slider-value" id="thicknessVal">6px</div>
+    </div>
+
+    <div class="sidebar-label" style="margin-top:4px">GLOW</div>
+    <div class="slider-section">
+      <div class="slider-track" id="glowTrack">
+        <div class="slider-thumb" id="glowThumb" style="left:60%"></div>
+      </div>
+      <div class="slider-value" id="glowVal">60%</div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="icon-row">
+      <!-- Undo -->
+      <div class="icon-btn" onclick="doUndo()" title="Undo (Z)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </div>
+      <!-- Trash / Clear -->
+      <div class="icon-btn" onclick="doClear()" title="Clear (C)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </div>
+      <!-- Eraser toggle -->
+      <div class="icon-btn" onclick="toggleEraser()" id="eraserBtn" title="Eraser (E)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </div>
+      <!-- Download -->
+      <div class="icon-btn" onclick="doSave()" title="Save (S)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom SHOW HAND toggle -->
+  <div class="bottom-toggle" onclick="toggleHand()">
+    <span class="hand-emoji">&#128075;</span>
+    <span id="handLabel">SHOW HAND</span>
+  </div>
+
+  <!-- Cursor glow -->
+  <div class="cursor-glow" id="cursorGlow"></div>
+
+  <!-- Flash message -->
+  <div class="flash-msg" id="flashMsg"></div>
+
+  <!-- Onboarding modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-card">
+      <div class="modal-logo">A</div>
+      <div class="modal-title">How to Play</div>
+      <div class="gesture-cards">
+        <div class="gesture-card">
+          <div class="g-emoji">&#9757;&#65039;</div>
+          <div><div class="g-name">Draw</div><div class="g-desc">Point index finger to draw</div></div>
+        </div>
+        <div class="gesture-card">
+          <div class="g-emoji">&#9995;</div>
+          <div><div class="g-name">Erase</div><div class="g-desc">Sweep open palm to erase</div></div>
+        </div>
+        <div class="gesture-card">
+          <div class="g-emoji">&#129295;</div>
+          <div><div class="g-name">Move</div><div class="g-desc">Pinch to grab &amp; reposition</div></div>
+        </div>
+        <div class="gesture-card">
+          <div class="g-emoji">&#9994;</div>
+          <div><div class="g-name">Idle</div><div class="g-desc">Close fist to rest</div></div>
+        </div>
+      </div>
+      <button class="modal-btn" onclick="closeModal()">Let's Go!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=[
+  {name:'Cyan',hex:'#00f5ff',g:'0,245,255'},
+  {name:'Green',hex:'#22ff44',g:'34,255,68'},
+  {name:'Magenta',hex:'#ff22cc',g:'255,34,204'},
+  {name:'Blue',hex:'#4488ff',g:'68,136,255'},
+  {name:'Lime',hex:'#aaff00',g:'170,255,0'},
+  {name:'Pink',hex:'#ff4488',g:'255,68,136'},
+  {name:'Yellow',hex:'#ffdd00',g:'255,221,0'},
+  {name:'Purple',hex:'#bb44ff',g:'187,68,255'},
+  {name:'White',hex:'#ffffff',g:'255,255,255'},
+  {name:'Slate',hex:'#667788',g:'102,119,136'},
+];
+
+let cIdx=0, brush=6, glow=0.6, drawing=false, eraser=false, lx=0, ly=0;
+let undoS=[], redoS=[];
+
+const cv=document.getElementById('drawCanvas'), cx=cv.getContext('2d');
+const cg=document.getElementById('cursorGlow');
+
+function init(){
+  rz(); window.addEventListener('resize',rz);
+  buildPal(); updStar(); updCur(); saveSt();
+  cv.addEventListener('mousedown',dn);
+  cv.addEventListener('mousemove',mv);
+  cv.addEventListener('mouseup',up);
+  cv.addEventListener('mouseleave',up);
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+  document.addEventListener('mousemove',tc);
+  document.addEventListener('keydown',onK);
+  setupSlider('thicknessTrack','thicknessThumb',0.25,v=>{
+    brush=Math.round(1+v*39);
+    document.getElementById('thicknessVal').textContent=brush+'px';
+    updCur();
+  });
+  setupSlider('glowTrack','glowThumb',0.6,v=>{
+    glow=v;
+    document.getElementById('glowVal').textContent=Math.round(v*100)+'%';
+  });
+}
+
+function rz(){
+  const d=cv.toDataURL();
+  cv.width=window.innerWidth; cv.height=window.innerHeight;
+  if(undoS.length){const i=new Image();i.onload=()=>cx.drawImage(i,0,0);i.src=d;}
+}
+
+function buildPal(){
+  const g=document.getElementById('colorGrid');
+  COLORS.forEach((c,i)=>{
+    const d=document.createElement('div');
+    d.className='color-dot'+(i===0?' active':'');
+    d.style.background=c.hex;
+    d.style.boxShadow='0 0 8px rgba('+c.g+',0.4)';
+    d.onclick=()=>selCol(i);
+    g.appendChild(d);
+  });
+}
+
+function selCol(i){
+  cIdx=i; eraser=false;
+  document.getElementById('eraserBtn').classList.remove('active-btn');
+  document.querySelectorAll('.color-dot').forEach((d,j)=>d.classList.toggle('active',j===i));
+  updStar(); updCur(); flash(COLORS[i].name,COLORS[i].hex);
+}
+
+function updStar(){
+  const s=document.getElementById('neonStar');
+  s.style.color=COLORS[cIdx].hex;
+  s.style.filter='drop-shadow(0 0 8px rgba('+COLORS[cIdx].g+',0.7))';
+}
+
+function updCur(){
+  const c=COLORS[cIdx], sz=eraser?40:Math.max(brush*2+6,14);
+  cg.style.width=sz+'px'; cg.style.height=sz+'px';
+  if(eraser){
+    cg.style.background='rgba(255,100,100,0.15)';
+    cg.style.boxShadow='0 0 12px rgba(255,100,100,0.3),inset 0 0 6px rgba(255,100,100,0.15)';
+    cg.style.border='2px solid rgba(255,100,100,0.5)';
+  }else{
+    cg.style.background='rgba('+c.g+','+(0.12+glow*0.18)+')';
+    cg.style.boxShadow='0 0 '+(10+glow*25)+'px rgba('+c.g+','+glow*0.6+'),0 0 '+(4+glow*10)+'px rgba('+c.g+',0.3)';
+    cg.style.border='2px solid rgba('+c.g+',0.5)';
+  }
+}
+
+function dn(e){
+  if(e.button===2){eraser=true;updCur();}
+  drawing=true;
+  const r=cv.getBoundingClientRect();
+  lx=e.clientX-r.left; ly=e.clientY-r.top;
+  saveSt();
+}
+
+function mv(e){
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(!drawing){lx=x;ly=y;return;}
+  if(eraser){
+    cx.save();
+    cx.globalCompositeOperation='destination-out';
+    cx.beginPath(); cx.arc(x,y,20,0,Math.PI*2); cx.fill();
+    cx.restore();
+  }else{
+    const c=COLORS[cIdx];
+    cx.save();
+    if(glow>0.05){
+      cx.shadowColor=c.hex; cx.shadowBlur=8+glow*30;
+      cx.strokeStyle=c.hex; cx.lineWidth=brush*2;
+      cx.lineCap='round'; cx.lineJoin='round';
+      cx.globalAlpha=0.35+glow*0.4;
+      cx.beginPath(); cx.moveTo(lx,ly); cx.lineTo(x,y); cx.stroke();
+    }
+    cx.shadowColor=c.hex; cx.shadowBlur=4+glow*12;
+    cx.strokeStyle=c.hex; cx.lineWidth=brush*1.5;
+    cx.lineCap='round'; cx.lineJoin='round'; cx.globalAlpha=1;
+    cx.beginPath(); cx.moveTo(lx,ly); cx.lineTo(x,y); cx.stroke();
+    cx.restore();
+  }
+  lx=x; ly=y;
+}
+
+function up(e){
+  if(!drawing)return; drawing=false;
+  if(e&&e.button===2){eraser=false;updCur();}
+}
+
+function tc(e){cg.style.left=e.clientX+'px';cg.style.top=e.clientY+'px';}
+
+function saveSt(){undoS.push(cv.toDataURL());if(undoS.length>30)undoS.shift();redoS=[];}
+function rst(d){const i=new Image();i.onload=()=>{cx.clearRect(0,0,cv.width,cv.height);cx.drawImage(i,0,0);};i.src=d;}
+
+function doUndo(){if(undoS.length<=1)return;redoS.push(undoS.pop());rst(undoS[undoS.length-1]);flash('Undo','#7bd');}
+function doRedo(){if(!redoS.length)return;const s=redoS.pop();undoS.push(s);rst(s);flash('Redo','#7db');}
+function doClear(){saveSt();cx.clearRect(0,0,cv.width,cv.height);flash('Cleared','#ff5566');}
+function doSave(){const a=document.createElement('a');a.download='air-drawing_'+Date.now()+'.png';a.href=cv.toDataURL();a.click();flash('Saved!','#4ade80');}
+
+function toggleEraser(){
+  eraser=!eraser;
+  document.getElementById('eraserBtn').classList.toggle('active-btn',eraser);
+  updCur(); flash(eraser?'Eraser ON':'Eraser OFF',eraser?'#ff6666':'#4ade80');
+}
+
+function toggleHand(){
+  const l=document.getElementById('handLabel');
+  const on=l.textContent==='SHOW HAND';
+  l.textContent=on?'HIDE HAND':'SHOW HAND';
+  flash(on?'Hand Hidden':'Hand Visible','#aaa');
+}
+
+function closeModal(){document.getElementById('modal').classList.add('hidden');}
+
+let ft;
+function flash(t,c){
+  const e=document.getElementById('flashMsg');
+  e.textContent=t;e.style.color=c;e.classList.add('visible');
+  clearTimeout(ft);ft=setTimeout(()=>e.classList.remove('visible'),1000);
+}
+
+function setupSlider(tid,hid,ini,cb){
+  const t=document.getElementById(tid),h=document.getElementById(hid);let dr=false;
+  function upd(e){const r=t.getBoundingClientRect();let p=(e.clientX-r.left)/r.width;p=Math.max(0,Math.min(1,p));h.style.left=(p*100)+'%';cb(p);}
+  h.addEventListener('mousedown',e=>{dr=true;e.preventDefault();e.stopPropagation();});
+  t.addEventListener('mousedown',e=>{dr=true;upd(e);e.stopPropagation();});
+  document.addEventListener('mousemove',e=>{if(dr){upd(e);e.preventDefault();}});
+  document.addEventListener('mouseup',()=>{dr=false;});
+}
+
+function onK(e){
+  if(!document.getElementById('modal').classList.contains('hidden')){if(e.key==='Enter')closeModal();return;}
+  const k=e.key.toLowerCase();
+  if(k>='1'&&k<='9'&&parseInt(k)<=COLORS.length){selCol(parseInt(k)-1);return;}
+  if(k==='0'&&COLORS.length>=10){selCol(9);return;}
+  if(k==='+'||k==='='){brush=Math.min(brush+2,40);document.getElementById('thicknessVal').textContent=brush+'px';updCur();return;}
+  if(k==='-'){brush=Math.max(brush-2,1);document.getElementById('thicknessVal').textContent=brush+'px';updCur();return;}
+  if(k==='z'){doUndo();return;}
+  if(k==='y'){doRedo();return;}
+  if(k==='c'){doClear();return;}
+  if(k==='s'){e.preventDefault();doSave();return;}
+  if(k==='e'){toggleEraser();return;}
+}
+
+init();
+</script>
+</body>
+</html>
