@@ -11,7 +11,7 @@ import time
 from collections import deque
 from typing import Optional, Tuple
 
-import av
+
 import cv2
 import mediapipe as mp
 import numpy as np
