@@ -121,7 +121,13 @@ st.markdown("""
     /* Hide Streamlit branding */
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
-    header { visibility: hidden; }
+
+    /* WebRTC video container */
+    .stVideo > div { border-radius: 12px; overflow: hidden; }
+    iframe[title="streamlit_webrtc.component"] {
+        border-radius: 12px;
+        min-height: 480px;
+    }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
@@ -531,12 +537,45 @@ with st.sidebar:
 #  MAIN CANVAS AREA
 # ═══════════════════════════════════════════════════
 
-# WebRTC streamer
+# WebRTC streamer — needs TURN servers on Streamlit Cloud (behind NAT)
+RTC_CONFIGURATION = {
+    "iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {"urls": ["stun:stun2.l.google.com:19302"]},
+        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:stun4.l.google.com:19302"]},
+        {
+            "urls": ["turn:a.relay.metered.ca:80"],
+            "username": "e8dd65b92a5bf1e2d3b1b648",
+            "credential": "kJEoJHmFD/DNQX88",
+        },
+        {
+            "urls": ["turn:a.relay.metered.ca:80?transport=tcp"],
+            "username": "e8dd65b92a5bf1e2d3b1b648",
+            "credential": "kJEoJHmFD/DNQX88",
+        },
+        {
+            "urls": ["turn:a.relay.metered.ca:443"],
+            "username": "e8dd65b92a5bf1e2d3b1b648",
+            "credential": "kJEoJHmFD/DNQX88",
+        },
+        {
+            "urls": ["turns:a.relay.metered.ca:443?transport=tcp"],
+            "username": "e8dd65b92a5bf1e2d3b1b648",
+            "credential": "kJEoJHmFD/DNQX88",
+        },
+    ]
+}
+
+st.markdown("### 🎨 Air Draw Canvas")
+st.caption("Click **START** below, allow camera access, then use hand gestures to draw!")
+
 ctx = webrtc_streamer(
     key="air-draw",
     mode=WebRtcMode.SENDRECV,
     video_processor_factory=AirDrawProcessor,
-    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+    rtc_configuration=RTC_CONFIGURATION,
     media_stream_constraints={"video": {"width": 1280, "height": 720}, "audio": False},
     async_processing=True,
 )
