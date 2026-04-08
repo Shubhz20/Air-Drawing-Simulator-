@@ -7,10 +7,5 @@
       "source": "/api/(.*)",
       "destination": "/api/app.py"
     }
-  ],
-  "functions": {
-    "api/app.py": {
-      "runtime": "@vercel/python@latest"
-    }
-  }
+  ]
 }
