@@ -15,6 +15,7 @@ import av
 import cv2
 import mediapipe as mp
 import numpy as np
+import av
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase
 
