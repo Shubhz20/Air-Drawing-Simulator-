@@ -1,10 +1,4 @@
+ffmpeg
 pkg-config
-libgl1
+libgl1-mesa-glx
 libglib2.0-0
-libavdevice-dev
-libavfilter-dev
-libavformat-dev
-libavcodec-dev
-libswresample-dev
-libswscale-dev
-libavutil-dev
