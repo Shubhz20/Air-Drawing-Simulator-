@@ -1,0 +1,10 @@
+pkg-config
+libgl1
+libglib2.0-0
+libavdevice-dev
+libavfilter-dev
+libavformat-dev
+libavcodec-dev
+libswresample-dev
+libswscale-dev
+libavutil-dev
