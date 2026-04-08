@@ -1,130 +1,286 @@
-# Air Drawing Simulator
+# Air Drawing Simulator — Vercel Deployment Edition
 
 Draw in the air using hand gestures detected by your webcam. No mouse, no stylus — just your hand.
 
-Built with **Python**, **OpenCV**, and **MediaPipe**.
+Built with **React/Next.js** (frontend), **Python/Flask** (backend), and **MediaPipe** (hand tracking).
 
-![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.8%2B-green)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10%2B-orange)
+![React](https://img.shields.io/badge/React-18.2-blue?logo=react)
+![Next.js](https://img.shields.io/badge/Next.js-14.0-black?logo=nextjs)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-orange)
+![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)
 
 ---
 
-## Quick Start
+## 🚀 Quick Start (Local)
+
+### Prerequisites
+- Node.js 16+ ([download](https://nodejs.org))
+- Python 3.9+ ([download](https://python.org))
+
+### Setup (2 minutes)
 
 ```bash
-# 1. Install dependencies
+# Clone & install
+git clone https://github.com/YOUR_USERNAME/Air-Drawing-Simulator.git
+cd Air-Drawing-Simulator
+npm install
+python -m venv venv
+source venv/bin/activate  # or `venv\Scripts\activate` on Windows
 pip install -r requirements.txt
-
-# 2. Run the app
-python main.py
 ```
 
-A window opens with your webcam feed. Hold up your hand and start drawing!
+### Run Locally
+
+**Terminal 1 — Frontend (React)**
+```bash
+npm run dev
+# Runs on http://localhost:3000
+```
+
+**Terminal 2 — Backend (Flask)**
+```bash
+python api/app.py
+# Runs on http://localhost:5000
+```
+
+Open http://localhost:3000 in your browser and start drawing!
 
 ---
 
-## Gestures
+## 🌐 Deploy to Vercel (1 Click)
+
+### Easy Deployment
+
+1. Push to GitHub:
+```bash
+git add .
+git commit -m "Ready for deployment"
+git push origin main
+```
+
+2. Go to [vercel.com](https://vercel.com)
+3. Click "New Project"
+4. Import your GitHub repo
+5. Click "Deploy" ✨
+
+That's it! Your app is live on `https://your-project-name.vercel.app`
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed steps.
+
+---
+
+## ✨ Features
+
+✅ **Real-time Hand Detection** — MediaPipe hand tracking at 30+ FPS
+✅ **Neon Glow Drawing** — Glowing strokes with customizable intensity
+✅ **Dark Glassmorphism UI** — Modern frosted glass design
+✅ **10 Color Palette** — Cyan, Green, Magenta, Blue, Lime, Pink, Yellow, Purple, White, Slate
+✅ **Undo/Redo Stack** — Full drawing history (20 steps)
+✅ **Gesture Controls** — Draw, erase, move, undo, redo, clear, save
+✅ **Export Drawing** — Save as PNG with one click
+✅ **Responsive Canvas** — Works on desktop and tablet (webcam required)
+✅ **Mobile-Ready** — Fully responsive design
+
+---
+
+## 🎮 Gestures
 
 | Gesture | Fingers | Action |
 |---|---|---|
-| Index finger only | ☝️ | **Draw** — follow your fingertip |
-| Open palm (all 5) | ✋ | **Erase** — rub out strokes |
-| Pinch (thumb+index) | 🤏 | **Move** — drag the whole canvas |
-| V sign (index+middle) | ✌️ | **Rectangle** — draw shape |
-| Three fingers (I+M+R) | 🖖 | **Circle** — draw shape |
-| Thumb + pinky | 🤙 | **Cycle colour** |
-| Thumb + middle | | **Undo** |
-| Thumb + ring | | **Redo** |
-| Fist (hold 1.5s) | ✊ | **Clear canvas** |
-| Thumb + index + pinky | 🤟 | **Save drawing** |
+| **Index Finger** | ☝️ | Draw on canvas |
+| **Open Palm** | ✋ | Erase strokes |
+| **Pinch** | 🤏 | Drag & move canvas |
+| **V Sign** | ✌️ | Draw rectangle |
+| **3 Fingers** | 🖖 | Draw circle |
+| **Thumb + Pinky** | 🤙 | Cycle colour |
+| **Thumb + Middle** | | Undo |
+| **Thumb + Ring** | | Redo |
+| **Fist (hold 1.5s)** | ✊ | Clear canvas |
+| **Rock Sign** | 🤟 | Save drawing |
 
 ---
 
-## Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Key | Action |
 |---|---|
-| `1`–`8` | Switch colour |
-| `+` / `-` | Increase / decrease brush size |
+| `1–8` | Switch colour |
+| `+` / `−` | Increase / decrease brush |
 | `C` | Clear canvas |
-| `S` | Save drawing as PNG |
-| `Z` | Undo |
-| `Y` | Redo |
-| `Q` | Quit |
+| `S` | Save drawing |
+| `Z` / `Y` | Undo / Redo |
+| `E` | Toggle eraser |
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-AIR-DRAWING-SIMULATOR/
-├── main.py              # Application entry point & main loop
-├── config.py            # All settings in one place
-├── hand_tracker.py      # MediaPipe hand detection wrapper
-├── gesture_detector.py  # Rule-based & ML gesture recognition
-├── canvas.py            # Drawing surface + undo/redo + shapes
-├── ui_overlay.py        # On-screen HUD and toolbar
-├── requirements.txt     # Python dependencies
-└── README.md            # This file
+Air-Drawing-Simulator/
+├── pages/
+│   └── index.jsx              # Main React page
+├── components/
+│   ├── Canvas.jsx             # Drawing canvas
+│   ├── Sidebar.jsx            # Controls & settings
+│   ├── Modal.jsx              # Onboarding modal
+│   └── FlashMessage.jsx       # Notifications
+├── styles/
+│   ├── globals.css            # Global dark theme
+│   ├── Home.module.css        # Page layout
+│   ├── Canvas.module.css      # Canvas styles
+│   ├── Sidebar.module.css     # Sidebar styles
+│   └── ...
+├── api/
+│   └── app.py                 # Flask backend (REST API)
+├── package.json               # Node dependencies
+├── requirements.txt           # Python dependencies
+├── next.config.js             # Next.js config
+├── vercel.json                # Vercel deployment config
+└── README.md                  # This file
 ```
+
+See [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md) for detailed breakdown.
 
 ---
 
-## How It Works
+## 🔧 API Endpoints
 
-### 1. Hand Tracking (MediaPipe)
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/health` | GET | Health check |
+| `/api/detect-hand` | POST | Detect hand gesture from image |
+| `/api/canvas/init` | POST | Initialize canvas session |
+| `/api/canvas/clear` | POST | Clear canvas |
+| `/api/canvas/save` | POST | Export drawing as PNG |
+| `/api/canvas/undo` | POST | Undo last stroke |
+| `/api/canvas/redo` | POST | Redo last stroke |
 
-MediaPipe's Hand solution detects **21 3D landmarks** per hand in real time. Each landmark has normalised (x, y, z) coordinates. The model runs a two-stage pipeline: first a palm detector locates the hand bounding box, then a landmark model predicts the 21 joint positions within that box.
+---
 
-### 2. Gesture Detection
+## 🏗️ How It Works
 
-Gestures are recognised by checking which fingers are "up" (extended). For each finger, we compare the y-coordinate of the fingertip landmark against the joint just below it — if the tip is higher (smaller y), the finger is extended. The thumb uses x-coordinate comparison instead, adjusted for handedness.
+### 1. Hand Tracking
+MediaPipe detects **21 hand landmarks** in real time:
+- Wrist (1)
+- Thumb (4)
+- Index finger (4)
+- Middle finger (4)
+- Ring finger (4)
+- Pinky finger (4)
 
-Different finger combinations map to different actions (see the gesture table above). A pinch is detected when the Euclidean distance between thumb tip and index tip falls below a threshold.
+### 2. Gesture Recognition
+Finger positions are analyzed to detect:
+- Extended vs. bent fingers (by comparing tip y-coordinate to joint y-coordinate)
+- Pinch distance (Euclidean distance between thumb and index tips)
+- Hand orientation (left vs. right, adjusted for webcam mirroring)
 
-### 3. Drawing Logic
-
-When the DRAW gesture is active, the app tracks the index fingertip position through an **exponential moving average** smoother to reduce jitter. It draws thick line segments between consecutive frames using OpenCV's `cv2.line()` with anti-aliasing, plus dots at each point for smooth stroke caps.
-
-The canvas is a separate black image that gets **composited** onto the webcam frame each loop — black pixels are treated as transparent, so only the drawn strokes appear overlaid on the video.
+### 3. Drawing
+- **Smoothing**: Exponential moving average filter (α=0.55) reduces jitter
+- **Neon Glow**: Outer glow layer + bright core stroke using alpha blending
+- **Compositing**: Canvas overlays on webcam feed (black pixels = transparent)
 
 ### 4. Undo/Redo
-
-Canvas snapshots are **PNG-compressed** and stored in a deque. Snapshots are taken at stroke boundaries (when you start a new stroke), not every frame, keeping memory usage reasonable while still allowing fine-grained undo.
-
-### 5. Shape Drawing
-
-Rectangle and circle tools use a two-phase approach: while you hold the gesture, a **preview** is rendered on a temporary layer each frame. When you release (switch to IDLE), the shape is **committed** to the permanent canvas.
+- PNG-compressed snapshots stored in deques (max 20 steps)
+- Snapshots taken at stroke boundaries, not per-frame
+- Memory efficient while maintaining fine-grained history
 
 ---
 
-## Configuration
+## 🛠️ Tech Stack
 
-All settings are in `config.py`. Key ones:
+### Frontend
+- **React 18** — UI components
+- **Next.js 14** — React framework & routing
+- **CSS Modules** — Scoped component styling
+- **Axios** — HTTP client for API calls
 
-| Setting | Default | Description |
-|---|---|---|
-| `CAMERA_INDEX` | 0 | Webcam device index |
-| `CANVAS_WIDTH` | 1280 | Window width |
-| `CANVAS_HEIGHT` | 720 | Window height |
-| `SMOOTHING_FACTOR` | 0.55 | Pointer smoothing (0=raw, 0.9=very smooth) |
-| `BRUSH_SIZE_DEFAULT` | 6 | Starting brush radius |
-| `PINCH_THRESHOLD` | 0.055 | Pinch detection sensitivity |
+### Backend
+- **Flask 3** — REST API server
+- **MediaPipe** — Hand detection & landmarks
+- **OpenCV** — Image processing
+- **NumPy** — Numerical operations
 
----
-
-## Possible Improvements
-
-- **Pressure sensitivity** — use the z-coordinate (depth) of the fingertip to vary brush width
-- **Multi-hand support** — let two people draw simultaneously
-- **Colour picker wheel** — gesture to open a radial colour picker
-- **Export as SVG** — record stroke paths as vectors instead of rasterised pixels
-- **Network mode** — stream the canvas over WebSocket for collaborative drawing
-- **ML gesture classifier** — the `gesture_detector.py` module already has scaffolding for training a Random Forest on collected landmark data
+### Deployment
+- **Vercel** — Serverless hosting (frontend + backend)
+- **Python 3.11** — Vercel serverless runtime
 
 ---
 
-## License
+## 📚 Documentation
 
-MIT — do whatever you like with it.
+- [SETUP.md](./SETUP.md) — Quick start guide
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — Detailed Vercel deployment
+- [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md) — Project file breakdown
+
+---
+
+## 🐛 Troubleshooting
+
+**Webcam not working?**
+- Check browser permissions (Settings → Camera)
+- Ensure no other app is using the webcam
+- Try refreshing the page
+
+**Slow performance?**
+- Reduce video resolution in `Canvas.jsx`
+- Close unnecessary browser tabs
+- Check GPU acceleration (DevTools → Performance)
+
+**Hand not detected?**
+- Ensure good lighting
+- Keep hand fully visible in frame
+- Try getting closer to camera
+
+**Build fails on Vercel?**
+- Check `vercel.json` is in root directory
+- Verify `package.json` build script: `"build": "next build"`
+- Ensure Python requirements are listed in `requirements.txt`
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for more troubleshooting.
+
+---
+
+## 🚀 Next Steps
+
+- Add cloud storage (Firebase/S3) for drawing exports
+- Implement user accounts & drawing history
+- Add social sharing features
+- Integrate Gemini API for AI analysis of drawings
+- Create mobile app wrapper (React Native)
+- Deploy backend to Cloud Run for better scalability
+
+---
+
+## 📄 License
+
+MIT — Open source & free to use
+
+---
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome!
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 👨‍💻 Built With
+
+- Hand tracking by [MediaPipe](https://mediapipe.dev)
+- UI inspired by [air-draw-one.vercel.app](https://air-draw-one.vercel.app)
+- Deployed with ❤️ on [Vercel](https://vercel.com)
+
+---
+
+**Ready to draw?** 🎨
+Start with `npm run dev` and `python api/app.py`, then open http://localhost:3000!
+
+Questions? Check out [DEPLOYMENT.md](./DEPLOYMENT.md) or open an issue on GitHub.
+
+**Happy drawing! 🖌️**

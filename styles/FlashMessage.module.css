@@ -1,0 +1,17 @@
+.flash {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 36px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+}
+
+.flash.visible {
+  opacity: 1;
+}

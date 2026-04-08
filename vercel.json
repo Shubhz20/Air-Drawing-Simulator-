@@ -1,8 +1,19 @@
 {
-  "buildCommand": null,
-  "outputDirectory": "public",
-  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/preview.html" }
-  ]
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/app.py"
+    }
+  ],
+  "functions": {
+    "api/app.py": {
+      "runtime": "python3.11"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
+  }
 }
