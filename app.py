@@ -198,6 +198,12 @@ def detect_gesture(hand_landmarks, handedness="Right"):
 
 
 # ═══════════════════════════════════════════════════
+#  MEDIAPIPE SETUP
+# ═══════════════════════════════════════════════════
+mp_hands = mp.solutions.hands
+mp_draw = mp.solutions.drawing_utils
+
+# ═══════════════════════════════════════════════════
 #  VIDEO PROCESSOR (runs on each webcam frame)
 # ═══════════════════════════════════════════════════
 
@@ -206,9 +212,7 @@ class AirDrawProcessor(VideoProcessorBase):
 
     def __init__(self):
         # MediaPipe
-        self._mp_hands = mp.solutions.hands
-        self._mp_draw = mp.solutions.drawing_utils
-        self._hands = self._mp_hands.Hands(
+        self._hands = mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=1,
             min_detection_confidence=0.75,
@@ -336,10 +340,10 @@ class AirDrawProcessor(VideoProcessorBase):
 
             # Draw skeleton
             if self.show_hand:
-                self._mp_draw.draw_landmarks(
-                    img, hand, self._mp_hands.HAND_CONNECTIONS,
-                    self._mp_draw.DrawingSpec(color=(70, 70, 70), thickness=1, circle_radius=2),
-                    self._mp_draw.DrawingSpec(color=(50, 200, 50), thickness=2),
+                mp_draw.draw_landmarks(
+                    img, hand, mp_hands.HAND_CONNECTIONS,
+                    mp_draw.DrawingSpec(color=(70, 70, 70), thickness=1, circle_radius=2),
+                    mp_draw.DrawingSpec(color=(50, 200, 50), thickness=2),
                 )
 
             gesture = detect_gesture(hand, handedness)
