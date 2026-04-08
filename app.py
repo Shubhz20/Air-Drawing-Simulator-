@@ -10,7 +10,7 @@ Run locally:  streamlit run streamlit_app.py
 import time
 from collections import deque
 from typing import Optional, Tuple
-
+import av
 
 import cv2
 import mediapipe as mp
