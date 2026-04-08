@@ -537,26 +537,27 @@ with st.sidebar:
 #  MAIN CANVAS AREA
 # ═══════════════════════════════════════════════════
 
-# WebRTC streamer — fetch TURN credentials from Metered.ca API
-import requests
-
-@st.cache_data(ttl=3600)
-def get_ice_servers():
-    """Fetch fresh TURN credentials from Metered.ca (cached 1 hour)."""
-    try:
-        resp = requests.get(
-            "https://techyharshit.metered.live/api/v1/turn/credentials"
-            "?apiKey=ekhXdampknVMvJ6geGU5WfnDF08h4TATWXOpUFfP2tp-YtSh",
-            timeout=5,
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception:
-        # Fallback to STUN-only
-        return [{"urls": ["stun:stun.l.google.com:19302"]}]
-
-ice_servers = get_ice_servers()
-RTC_CONFIGURATION = {"iceServers": ice_servers}
+# WebRTC streamer config with free TURN servers
+RTC_CONFIGURATION = {
+    "iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {
+            "urls": ["turn:openrelay.metered.ca:80"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        {
+            "urls": ["turn:openrelay.metered.ca:443"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        },
+        {
+            "urls": ["turn:openrelay.metered.ca:443?transport=tcp"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject"
+        }
+    ]
+}
 
 st.markdown("### 🎨 Air Draw Canvas")
 st.caption("Click **START** below, allow camera access, then use hand gestures to draw!")
