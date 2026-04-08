@@ -537,36 +537,26 @@ with st.sidebar:
 #  MAIN CANVAS AREA
 # ═══════════════════════════════════════════════════
 
-# WebRTC streamer — needs TURN servers on Streamlit Cloud (behind NAT)
-RTC_CONFIGURATION = {
-    "iceServers": [
-        {"urls": ["stun:stun.l.google.com:19302"]},
-        {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:stun2.l.google.com:19302"]},
-        {"urls": ["stun:stun3.l.google.com:19302"]},
-        {"urls": ["stun:stun4.l.google.com:19302"]},
-        {
-            "urls": ["turn:a.relay.metered.ca:80"],
-            "username": "e8dd65b92a5bf1e2d3b1b648",
-            "credential": "kJEoJHmFD/DNQX88",
-        },
-        {
-            "urls": ["turn:a.relay.metered.ca:80?transport=tcp"],
-            "username": "e8dd65b92a5bf1e2d3b1b648",
-            "credential": "kJEoJHmFD/DNQX88",
-        },
-        {
-            "urls": ["turn:a.relay.metered.ca:443"],
-            "username": "e8dd65b92a5bf1e2d3b1b648",
-            "credential": "kJEoJHmFD/DNQX88",
-        },
-        {
-            "urls": ["turns:a.relay.metered.ca:443?transport=tcp"],
-            "username": "e8dd65b92a5bf1e2d3b1b648",
-            "credential": "kJEoJHmFD/DNQX88",
-        },
-    ]
-}
+# WebRTC streamer — fetch TURN credentials from Metered.ca API
+import requests
+
+@st.cache_data(ttl=3600)
+def get_ice_servers():
+    """Fetch fresh TURN credentials from Metered.ca (cached 1 hour)."""
+    try:
+        resp = requests.get(
+            "https://techyharshit.metered.live/api/v1/turn/credentials"
+            "?apiKey=ekhXdampknVMvJ6geGU5WfnDF08h4TATWXOpUFfP2tp-YtSh",
+            timeout=5,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        # Fallback to STUN-only
+        return [{"urls": ["stun:stun.l.google.com:19302"]}]
+
+ice_servers = get_ice_servers()
+RTC_CONFIGURATION = {"iceServers": ice_servers}
 
 st.markdown("### 🎨 Air Draw Canvas")
 st.caption("Click **START** below, allow camera access, then use hand gestures to draw!")
