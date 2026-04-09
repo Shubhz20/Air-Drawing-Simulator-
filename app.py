@@ -497,33 +497,43 @@ with st.sidebar:
     
     selected_color = st.session_state.get("color_index", 0)
     
-    # Advanced CSS for glossy circle buttons and active glow
+    # Aggressive CSS to override Streamlit's default button styling
     color_style = "<style>\n"
     for i, (name, _) in enumerate(COLORS):
         hex_val = COLOR_HEX[i]
         is_selected = (i == selected_color)
         
-        # Base button styling: Circular, glossy, glowing
+        # Target the button using multiple attributes for maximum specificity
+        selector = f'button[data-testid="stBaseButton-secondary"][title="{name}"]'
+        
         color_style += f"""
-        button[title="{name}"] {{
+        {selector} {{
             background: radial-gradient(circle at 30% 30%, {hex_val}, {hex_val}88) !important;
+            background-color: {hex_val} !important;
             border-radius: 50% !important;
             width: 45px !important;
             height: 45px !important;
             min-width: 45px !important;
+            max-width: 45px !important;
+            padding: 0 !important;
             border: 2px solid {"#ffffff" if is_selected else "transparent"} !important;
             box-shadow: 0 0 {"15px " + hex_val + "aa" if is_selected else "5px " + hex_val + "44"} !important;
             transition: all 0.2s ease-in-out !important;
             margin: 5px auto !important;
-            display: block !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }}
-        button[title="{name}"] p {{
-            display: none !important; /* Hide dot text */
+        {selector} p {{
+            display: none !important;
         }}
-        button[title="{name}"]:hover {{
+        {selector}:hover {{
             transform: scale(1.1) !important;
             box-shadow: 0 0 20px {hex_val} !important;
             border-color: #ffffffaa !important;
+        }}
+        {selector}:active {{
+            transform: scale(0.95) !important;
         }}
         """
     color_style += "</style>"
@@ -533,7 +543,8 @@ with st.sidebar:
     color_cols = st.columns(4)
     for i, (name, _) in enumerate(COLORS):
         col = color_cols[i % 4]
-        if col.button("", # Empty label, handled by CSS
+        # Use a non-empty but invisible label to ensure the button renders with a title
+        if col.button("\u00A0", # Non-breaking space
                       key=f"color_{i}",
                       help=name,
                       use_container_width=False):
