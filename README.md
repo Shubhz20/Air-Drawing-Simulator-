@@ -77,6 +77,20 @@ This application is optimized for deployment on **Streamlit Community Cloud**. I
 *   **Packages:** `packages.txt` for system-level dependencies.
 *   **WebRTC:** Integrated TURN server configuration for cross-network compatibility.
 
+## Technical Challenges and Solutions
+
+### 1. Deployment Optimization
+Initially, the project targeted Vercel's serverless architecture. However, the 250MB functional limit was exceeded by necessary machine learning dependencies (MediaPipe, OpenCV).
+*   **Solution:** Migrated the deployment to Streamlit Community Cloud, which is better optimized for large-scale Python dependency management and real-time visualization.
+
+### 2. Network Traversal (NAT/Firewall)
+Real-time video streaming in cloud environments often fails due to complex network configurations (NAT/Firewalls) blocking direct peer-to-peer connections.
+*   **Solution:** Integrated a dedicated TURN server relay via Metered.ca. The application dynamically fetches fresh credentials to maintain reliable webcam connectivity across diverse network environments.
+
+### 3. MediaPipe Integration in Streamlit
+Initializing MediaPipe objects within Streamlit's worker threads led to resource leaks and attribute errors.
+*   **Solution:** Refactored MediaPipe initialization to a stable global scope and optimized the video processor factory to handle frames efficiently without re-initializing the model on every loop.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
