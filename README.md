@@ -1,4 +1,4 @@
-# Air Drawing Simulator — Vercel Deployment Edition
+# Air Drawing Simulator 
 
 Draw in the air using hand gestures detected by your webcam. No mouse, no stylus — just your hand.
 
