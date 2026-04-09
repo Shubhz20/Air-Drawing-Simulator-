@@ -494,35 +494,27 @@ with st.sidebar:
     # ── COLORS ──
     st.markdown("##### COLORS")
     
-    # Inject CSS once for all buttons based on their `help` (title) attribute
-    color_css = "<style>\n"
+    # Inject CSS to color each button's symbol based on its help text
+    color_style = "<style>\n"
     for i, (name, _) in enumerate(COLORS):
         hex_val = COLOR_HEX[i]
-        color_css += f"""
+        # Target button by title (help attribute) and color the dot inside
+        color_style += f"""
         button[title="{name}"] p {{
             color: {hex_val} !important;
-            font-size: 24px;
-            text-shadow: 0 0 8px {hex_val}66;
-            margin: 0;
-            padding: 0;
-        }}
-        button[title="{name}"] {{
-            border-color: {hex_val}44 !important;
-            background-color: transparent !important;
-        }}
-        button[title="{name}"]:hover {{
-            border-color: {hex_val} !important;
-            box-shadow: 0 0 10px {hex_val}44 !important;
+            font-size: 28px !important;
+            text-shadow: 0 0 10px {hex_val} !important;
         }}
         """
-    color_css += "</style>"
-    st.markdown(color_css, unsafe_allow_html=True)
+    color_style += "</style>"
+    st.markdown(color_style, unsafe_allow_html=True)
 
     color_cols = st.columns(5)
     selected_color = st.session_state.get("color_index", 0)
     for i, (name, _) in enumerate(COLORS):
         col = color_cols[i % 5]
-        if col.button(f"{'●' if i == selected_color else '●'}", # Using filled circle for all, CSS changes color
+        # Use a filled dot for all; selection is indicated by name below
+        if col.button("●",
                       key=f"color_{i}",
                       help=name,
                       use_container_width=True):
