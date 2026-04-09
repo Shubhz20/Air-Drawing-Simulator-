@@ -149,8 +149,9 @@ COLORS = [
 ]
 
 COLOR_HEX = [
-    "#00f5ff", "#22ff44", "#ff22cc", "#4488ff",
-    "#aaff00", "#ff4488", "#ffdd00", "#bb44ff", "#ffffff",
+    "#00fbff", "#00ff00", "#ff00ff", "#0070ff", # Cyan, Green, Magenta, Blue
+    "#ff2d55", "#ffcc00", "#af52ff", "#ffffff", # Pink/Red, Yellow, Purple, White
+    "#aaff00", # Lime
 ]
 
 MAX_UNDO = 20
@@ -492,39 +493,57 @@ with st.sidebar:
     st.markdown("---")
 
     # ── COLORS ──
-    st.markdown("##### COLORS")
+    st.markdown('<div style="text-align:center; font-weight:600; margin-bottom:10px; color:#888; letter-spacing:1px;">COLORS</div>', unsafe_allow_html=True)
     
-    # Inject CSS to color each button's symbol based on its help text
+    selected_color = st.session_state.get("color_index", 0)
+    
+    # Advanced CSS for glossy circle buttons and active glow
     color_style = "<style>\n"
     for i, (name, _) in enumerate(COLORS):
         hex_val = COLOR_HEX[i]
-        # Target button by title (help attribute) and color the dot inside
+        is_selected = (i == selected_color)
+        
+        # Base button styling: Circular, glossy, glowing
         color_style += f"""
+        button[title="{name}"] {{
+            background: radial-gradient(circle at 30% 30%, {hex_val}, {hex_val}88) !important;
+            border-radius: 50% !important;
+            width: 45px !important;
+            height: 45px !important;
+            min-width: 45px !important;
+            border: 2px solid {"#ffffff" if is_selected else "transparent"} !important;
+            box-shadow: 0 0 {"15px " + hex_val + "aa" if is_selected else "5px " + hex_val + "44"} !important;
+            transition: all 0.2s ease-in-out !important;
+            margin: 5px auto !important;
+            display: block !important;
+        }}
         button[title="{name}"] p {{
-            color: {hex_val} !important;
-            font-size: 28px !important;
-            text-shadow: 0 0 10px {hex_val} !important;
+            display: none !important; /* Hide dot text */
+        }}
+        button[title="{name}"]:hover {{
+            transform: scale(1.1) !important;
+            box-shadow: 0 0 20px {hex_val} !important;
+            border-color: #ffffffaa !important;
         }}
         """
     color_style += "</style>"
     st.markdown(color_style, unsafe_allow_html=True)
 
-    color_cols = st.columns(5)
-    selected_color = st.session_state.get("color_index", 0)
+    # Use 4 columns to match the reference screenshot aspect ratio
+    color_cols = st.columns(4)
     for i, (name, _) in enumerate(COLORS):
-        col = color_cols[i % 5]
-        # Use a filled dot for all; selection is indicated by name below
-        if col.button("●",
+        col = color_cols[i % 4]
+        if col.button("", # Empty label, handled by CSS
                       key=f"color_{i}",
                       help=name,
-                      use_container_width=True):
+                      use_container_width=False):
             st.session_state["color_index"] = i
+            st.rerun()
 
-    # Show active color name
-    ci = st.session_state.get("color_index", 0)
+    # Active color name display
     st.markdown(
-        f'<div style="text-align:center;color:{COLOR_HEX[ci]};font-weight:600;">'
-        f'{COLORS[ci][0]}</div>',
+        f'<div style="text-align:center; color:{COLOR_HEX[selected_color]}; font-weight:700; font-size:18px; margin-top:10px; text-transform:uppercase; letter-spacing:2px;">'
+        f'{COLORS[selected_color][0]}</div>',
         unsafe_allow_html=True,
     )
 
