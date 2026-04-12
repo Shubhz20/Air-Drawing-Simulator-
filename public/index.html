@@ -39,6 +39,7 @@
             height: 100%;
             object-fit: cover;
             z-index: 1;
+            transform: scaleX(-1);  /* Mirror for selfie view */
         }
 
         #drawCanvas {
@@ -512,18 +513,35 @@ const COLORS = [
 let colorIdx = 0, brushSize = 6, glowAmount = 0.6;
 let isDrawing = false, isEraser = false;
 let lastX = 0, lastY = 0;
+let smoothX = 0, smoothY = 0;  // Smoothed pointer position
 let undoStack = [], redoStack = [];
 let handDetector = null;
 let showHand = true;
+let frameSkip = 0;  // For frame throttling
+const SMOOTH_FACTOR = 0.45;  // EMA smoothing (lower = smoother, higher = responsive)
 
 const canvas = document.getElementById('drawCanvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 const video = document.getElementById('webcam');
 
+// Offscreen canvas for undo (much faster than toDataURL)
+let undoCanvasPool = [];
+function cloneCanvas() {
+    const c = document.createElement('canvas');
+    c.width = canvas.width;
+    c.height = canvas.height;
+    c.getContext('2d').drawImage(canvas, 0, 0);
+    return c;
+}
+
 // Setup canvas
 function setupCanvas() {
+    const oldData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    if (oldData.width === canvas.width && oldData.height === canvas.height) {
+        ctx.putImageData(oldData, 0, 0);
+    }
 }
 
 setupCanvas();
@@ -559,24 +577,44 @@ function updateNeonStar() {
 
 // Drawing functions
 function drawNeonLine(x1, y1, x2, y2) {
+    if (isEraser) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.lineWidth = brushSize * 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+        return;
+    }
+
     const c = COLORS[colorIdx];
+    ctx.save();
+    // Outer glow pass (only if glow > 5%)
     if (glowAmount > 0.05) {
         ctx.shadowColor = c.hex;
-        ctx.shadowBlur = 8 + glowAmount * 30;
-        ctx.strokeStyle = c.hex;
+        ctx.shadowBlur = 8 + glowAmount * 25;
+        ctx.strokeStyle = `rgba(${c.g},${0.25 + glowAmount * 0.35})`;
         ctx.lineWidth = brushSize * 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.globalAlpha = 0.35 + glowAmount * 0.4;
+        ctx.globalAlpha = 0.4;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
     }
+    // Core bright stroke
     ctx.shadowColor = c.hex;
-    ctx.shadowBlur = 4 + glowAmount * 12;
+    ctx.shadowBlur = 3 + glowAmount * 8;
     ctx.strokeStyle = c.hex;
-    ctx.lineWidth = brushSize * 1.5;
+    ctx.lineWidth = brushSize;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.globalAlpha = 1;
@@ -584,11 +622,12 @@ function drawNeonLine(x1, y1, x2, y2) {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.stroke();
+    ctx.restore();
 }
 
-// Undo/Redo
+// Undo/Redo (uses offscreen canvas cloning — much faster than toDataURL)
 function saveState() {
-    undoStack.push(canvas.toDataURL());
+    undoStack.push(cloneCanvas());
     if (undoStack.length > 20) undoStack.shift();
     redoStack = [];
 }
@@ -596,12 +635,9 @@ function saveState() {
 function undo() {
     if (undoStack.length <= 1) return;
     redoStack.push(undoStack.pop());
-    const img = new Image();
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-    };
-    img.src = undoStack[undoStack.length - 1];
+    const src = undoStack[undoStack.length - 1];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(src, 0, 0);
     flash('Undo', '#7bd');
 }
 
@@ -609,12 +645,8 @@ function redo() {
     if (!redoStack.length) return;
     const s = redoStack.pop();
     undoStack.push(s);
-    const img = new Image();
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-    };
-    img.src = s;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(s, 0, 0);
     flash('Redo', '#7db');
 }
 
@@ -686,72 +718,159 @@ document.addEventListener('keydown', (e) => {
 async function initHandTracking() {
     const { HandLandmarker, FilesetResolver } = window;
 
+    document.getElementById('status').textContent = 'Loading AI model...';
+
     const filesetResolver = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
     );
 
     handDetector = await HandLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate: 'GPU'   // Use WebGL for faster inference
         },
         numHands: 1,
-        minHandDetectionConfidence: 0.75,
-        minTrackingConfidence: 0.70,
+        minHandDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.60,
         runningMode: 'VIDEO'
     });
 
-    document.getElementById('status').textContent = 'Ready - Allow camera access';
+    document.getElementById('status').textContent = 'Starting camera...';
 
-    // Start webcam
-    navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
-        .then(stream => {
-            video.srcObject = stream;
+    // Request HD camera with explicit quality constraints
+    const constraints = {
+        video: {
+            width:      { ideal: 1920, min: 1280 },
+            height:     { ideal: 1080, min: 720 },
+            frameRate:  { ideal: 30, min: 24 },
+            facingMode: 'user',
+            // Prefer better quality
+            aspectRatio: { ideal: 16 / 9 }
+        },
+        audio: false
+    };
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+
+        // Log actual resolution
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        console.log(`Camera: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+
+        video.onloadedmetadata = () => {
+            document.getElementById('status').textContent =
+                `${settings.width}x${settings.height} @ ${Math.round(settings.frameRate)}fps`;
+            setTimeout(() => { document.getElementById('status').style.display = 'none'; }, 2500);
+            detectFrame();
+        };
+    } catch (err) {
+        // Fallback: try lower resolution if HD fails
+        try {
+            const fallback = await navigator.mediaDevices.getUserMedia({
+                video: { width: 1280, height: 720, facingMode: 'user' }, audio: false
+            });
+            video.srcObject = fallback;
             video.onloadedmetadata = () => {
-                document.getElementById('status').style.display = 'none';
+                document.getElementById('status').textContent = 'Camera ready (720p)';
+                setTimeout(() => { document.getElementById('status').style.display = 'none'; }, 2000);
                 detectFrame();
             };
-        })
-        .catch(err => {
-            document.getElementById('status').textContent = 'Camera error: ' + err.message;
-        });
+        } catch (e2) {
+            document.getElementById('status').textContent = 'Camera error: ' + e2.message;
+        }
+    }
 }
 
-// Detection loop
+// Finger-up detection helpers
+function isFingerUp(landmarks, tipIdx, pipIdx) {
+    return landmarks[tipIdx].y < landmarks[pipIdx].y;
+}
+
+// Detection loop — optimized with frame pacing
+let lastDetectTime = 0;
+const MIN_DETECT_INTERVAL = 25;  // ~40fps cap for detection (saves CPU)
+
 function detectFrame() {
+    const now = performance.now();
     if (!video.videoWidth || !handDetector) {
         requestAnimationFrame(detectFrame);
         return;
     }
 
-    const results = handDetector.detectForVideo(video, performance.now());
+    // Throttle detection to save CPU (still draws every frame if needed)
+    if (now - lastDetectTime < MIN_DETECT_INTERVAL) {
+        requestAnimationFrame(detectFrame);
+        return;
+    }
+    lastDetectTime = now;
 
-    // Draw on canvas based on detection
+    const results = handDetector.detectForVideo(video, now);
+
     if (results.landmarks.length > 0) {
-        const landmarks = results.landmarks[0];
-        const indexTip = landmarks[8];
-        const thumbTip = landmarks[4];
+        const lm = results.landmarks[0];
 
-        const ix = indexTip.x * canvas.width;
-        const iy = indexTip.y * canvas.height;
+        // Raw index finger tip position (mirrored for selfie view)
+        const rawX = (1 - lm[8].x) * canvas.width;
+        const rawY = lm[8].y * canvas.height;
 
-        // Simple gesture: if index tip is isolated, draw
-        const isIndexUp = indexTip.y < landmarks[6].y;
-        const isFingersDown = landmarks[12].y > landmarks[10].y;
+        // EMA smoothing to reduce jitter
+        if (lastX === 0 && lastY === 0) {
+            smoothX = rawX;
+            smoothY = rawY;
+        } else {
+            smoothX += SMOOTH_FACTOR * (rawX - smoothX);
+            smoothY += SMOOTH_FACTOR * (rawY - smoothY);
+        }
 
-        if (isIndexUp && isFingersDown) {
+        // Gesture detection: index up, middle down
+        const indexUp  = isFingerUp(lm, 8, 6);
+        const middleUp = isFingerUp(lm, 12, 10);
+        const ringUp   = isFingerUp(lm, 16, 14);
+        const pinkyUp  = isFingerUp(lm, 20, 18);
+
+        // DRAW = only index finger up
+        const shouldDraw = indexUp && !middleUp && !ringUp && !pinkyUp;
+        // ERASE = all fingers up (open palm)
+        const shouldErase = indexUp && middleUp && ringUp && pinkyUp;
+
+        if (shouldDraw || (shouldErase && isEraser)) {
             if (!isDrawing) {
                 saveState();
                 isDrawing = true;
+                lastX = smoothX;
+                lastY = smoothY;
             }
-            if (lastX > 0) {
-                drawNeonLine(lastX, lastY, ix, iy);
+
+            // Only draw if moved enough (reduces tiny jitter marks)
+            const dist = Math.hypot(smoothX - lastX, smoothY - lastY);
+            if (dist > 1.5) {
+                drawNeonLine(lastX, lastY, smoothX, smoothY);
+                lastX = smoothX;
+                lastY = smoothY;
             }
-            lastX = ix;
-            lastY = iy;
+        } else if (shouldErase && !isEraser) {
+            // Auto-activate eraser on open palm
+            if (!isDrawing) {
+                isEraser = true;
+                document.getElementById('eraserBtn').style.background = 'rgba(255,100,100,0.1)';
+                flash('Eraser ON', '#ff6666');
+            }
+            isDrawing = false;
+            lastX = lastY = 0;
         } else {
+            // Fingers not in draw position — stop stroke
+            if (isDrawing && isEraser && shouldDraw === false) {
+                // Keep eraser mode but stop drawing
+            }
             isDrawing = false;
             lastX = lastY = 0;
         }
+    } else {
+        // No hand detected
+        isDrawing = false;
+        lastX = lastY = 0;
     }
 
     requestAnimationFrame(detectFrame);
