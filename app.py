@@ -454,19 +454,19 @@ AIR_DRAW_HTML = """
             <div class="gesture-cards">
                 <div class="gesture-card">
                     <div class="emoji">☝️</div>
-                    <div><div class="g-name">Draw</div><div class="g-desc">Point index finger only</div></div>
+                    <div><div class="g-name">Draw</div><div class="g-desc">Index finger only to draw</div></div>
                 </div>
                 <div class="gesture-card">
                     <div class="emoji">✋</div>
-                    <div><div class="g-name">Stop</div><div class="g-desc">Open hand to pause</div></div>
+                    <div><div class="g-name">Eraser</div><div class="g-desc">Open palm to activate eraser</div></div>
+                </div>
+                <div class="gesture-card">
+                    <div class="emoji">🤏</div>
+                    <div><div class="g-name">Move</div><div class="g-desc">Pinch to grab &amp; drag drawing</div></div>
                 </div>
                 <div class="gesture-card">
                     <div class="emoji">✌️</div>
-                    <div><div class="g-name">Idle</div><div class="g-desc">Two fingers to rest</div></div>
-                </div>
-                <div class="gesture-card">
-                    <div class="emoji">✊</div>
-                    <div><div class="g-name">Fist</div><div class="g-desc">Fist to pause drawing</div></div>
+                    <div><div class="g-name">Pen Mode</div><div class="g-desc">Two fingers to exit eraser</div></div>
                 </div>
             </div>
             <button class="modal-btn" onclick="closeModal()">Let's Go!</button>
@@ -501,6 +501,14 @@ const ALPHA = 0.5;            // EMA factor (higher = more responsive)
 let undoStack = [], redoStack = [];
 let detector = null;
 let showHand = true;
+
+// Gesture state
+let gesture = 'IDLE';         // DRAW, ERASE, MOVE, IDLE
+let moving = false;           // pinch-move active
+let moveStartX = 0, moveStartY = 0;
+let moveSnapshot = null;      // canvas snapshot before move
+let palmHoldFrames = 0;       // frames palm held open
+const PALM_ACTIVATE = 8;      // frames before palm activates eraser
 
 const canvas = document.getElementById('drawCanvas');
 const ctx    = canvas.getContext('2d');
@@ -678,6 +686,21 @@ document.addEventListener('keydown', e => {
 // ─── FINGER HELPERS ───
 function fingerUp(lm, tip, pip) { return lm[tip].y < lm[pip].y; }
 
+function pinchDist(lm) {
+    // Distance between thumb tip (4) and index tip (8), normalized 0-1
+    const dx = lm[4].x - lm[8].x;
+    const dy = lm[4].y - lm[8].y;
+    const dz = (lm[4].z||0) - (lm[8].z||0);
+    return Math.sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+function midpoint(lm) {
+    // Midpoint between thumb and index (used as grab anchor)
+    const mx = ((1-lm[4].x) + (1-lm[8].x)) / 2 * canvas.width;
+    const my = (lm[4].y + lm[8].y) / 2 * canvas.height;
+    return { x: mx, y: my };
+}
+
 // ─── FPS COUNTER ───
 let fpsFrames = 0, fpsLast = performance.now();
 function tickFps() {
@@ -764,10 +787,62 @@ function detect() {
         const rngUp = fingerUp(lm,16,14);
         const pnkUp = fingerUp(lm,20,18);
 
-        // Draw = only index up
-        const wantDraw = idxUp && !midUp && !rngUp && !pnkUp;
+        // Thumb detection (special: check x-distance from palm base)
+        const thumbUp = fingerUp(lm,4,3);
 
-        if (wantDraw) {
+        const allUp = idxUp && midUp && rngUp && pnkUp;
+        const isPinch = pinchDist(lm) < 0.06;  // thumb+index very close
+
+        // ── GESTURE CLASSIFICATION ──
+
+        // 1) PINCH → MOVE (grab entire drawing)
+        if (isPinch && !allUp) {
+            if (gesture !== 'MOVE') {
+                // Start move
+                gesture = 'MOVE';
+                moving = true;
+                const mp = midpoint(lm);
+                moveStartX = mp.x;
+                moveStartY = mp.y;
+                moveSnapshot = cloneCanvas();
+                pushUndo();
+                if (!eraser) flash('Grab','#ffaa00');
+            } else {
+                // Continue move — shift canvas
+                const mp = midpoint(lm);
+                const dx = mp.x - moveStartX;
+                const dy = mp.y - moveStartY;
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(moveSnapshot, dx, dy);
+            }
+            drawing = false;
+            lx = ly = 0;
+            palmHoldFrames = 0;
+        }
+
+        // 2) OPEN PALM (all fingers up) → activate ERASER mode
+        else if (allUp) {
+            palmHoldFrames++;
+            if (palmHoldFrames >= PALM_ACTIVATE && !eraser) {
+                eraser = true;
+                document.getElementById('eraserBtn').classList.add('active-tool');
+                flash('Eraser ON','#ff6666');
+            }
+            // Stop any drawing/moving
+            drawing = false;
+            moving = false;
+            moveSnapshot = null;
+            lx = ly = 0;
+            gesture = 'IDLE';
+        }
+
+        // 3) INDEX ONLY → DRAW or ERASE (depending on eraser state)
+        else if (idxUp && !midUp && !rngUp && !pnkUp) {
+            gesture = eraser ? 'ERASE' : 'DRAW';
+            palmHoldFrames = 0;
+            moving = false;
+            moveSnapshot = null;
+
             if (!drawing) {
                 pushUndo();
                 drawing = true;
@@ -778,13 +853,45 @@ function detect() {
                 drawLine(lx, ly, sx, sy);
                 lx = sx; ly = sy;
             }
-        } else {
-            drawing = false;
-            lx = ly = 0;
         }
+
+        // 4) TWO FINGERS (peace/V) → deactivate eraser, go idle
+        else if (idxUp && midUp && !rngUp && !pnkUp) {
+            if (eraser) {
+                eraser = false;
+                document.getElementById('eraserBtn').classList.remove('active-tool');
+                flash('Eraser OFF','#4ade80');
+            }
+            drawing = false;
+            moving = false;
+            moveSnapshot = null;
+            lx = ly = 0;
+            palmHoldFrames = 0;
+            gesture = 'IDLE';
+        }
+
+        // 5) ANYTHING ELSE → idle
+        else {
+            drawing = false;
+            moving = false;
+            moveSnapshot = null;
+            lx = ly = 0;
+            palmHoldFrames = 0;
+            gesture = 'IDLE';
+        }
+
+        // Update mode label
+        const labels = { DRAW:'Drawing',ERASE:'Erasing',MOVE:'Moving',IDLE:'Idle' };
+        document.getElementById('modeLabel').textContent = 'Gesture: '+(labels[gesture]||'Idle');
+
     } else {
         drawing = false;
+        moving = false;
+        moveSnapshot = null;
         lx = ly = 0;
+        palmHoldFrames = 0;
+        gesture = 'IDLE';
+        document.getElementById('modeLabel').textContent = 'No hand detected';
     }
 
     requestAnimationFrame(detect);
