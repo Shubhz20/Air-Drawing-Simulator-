@@ -1,11 +1,12 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "framework": "nextjs",
-  "rewrites": [
+  "framework": null,
+  "public": "public",
+  "buildCommand": null,
+  "outputDirectory": null,
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/app.py"
+      "src": "/(.*)",
+      "dest": "/public/index.html"
     }
   ]
 }

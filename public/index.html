@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Draw — Gesture-Based Drawing</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Dancing+Script:wght@700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #e0e0e0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            cursor: none;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Webcam & Canvas */
+        #webcam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        #drawCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            cursor: none;
+        }
+
+        /* Camera badge */
+        .camera-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            box-shadow: 0 0 6px #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: absolute;
+            top: 50%;
+            right: 16px;
+            transform: translateY(-50%);
+            z-index: 10;
+            background: rgba(20, 20, 25, 0.82);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 178px;
+        }
+
+        .sidebar-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #888;
+            width: 100%;
+            text-align: center;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            width: 100%;
+            justify-items: center;
+        }
+
+        .color-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2.5px solid transparent;
+            transition: all 0.15s;
+        }
+
+        .color-dot:hover {
+            transform: scale(1.2);
+        }
+
+        .color-dot.active {
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            transform: scale(1.15);
+        }
+
+        .neon-star {
+            font-size: 28px;
+            filter: drop-shadow(0 0 6px currentColor);
+        }
+
+        .slider-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slider {
+            width: 80%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+            cursor: grab;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+            cursor: grab;
+            border: none;
+        }
+
+        .slider-value {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .divider {
+            width: 80%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .icon-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 18px;
+            padding: 0;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Bottom toggle */
+        .bottom-toggle {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 30px;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #bbb;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            border: none;
+        }
+
+        .bottom-toggle:hover {
+            background: rgba(30, 30, 35, 0.85);
+            color: #fff;
+        }
+
+        /* Flash message */
+        .flash-msg {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            font-weight: 700;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+        }
+
+        .flash-msg.visible {
+            opacity: 1;
+        }
+
+        /* Mode label */
+        .mode-label {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.45);
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.4s;
+        }
+
+        .modal-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal-card {
+            background: rgba(28, 28, 32, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px 48px;
+            max-width: 520px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal-logo {
+            font-family: 'Dancing Script', cursive;
+            font-size: 48px;
+            color: #e0e0e0;
+            margin-bottom: 8px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 28px;
+        }
+
+        .gesture-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .gesture-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .gesture-card .emoji {
+            font-size: 28px;
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .gesture-card .g-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .gesture-card .g-desc {
+            font-size: 12px;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        .modal-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #111;
+            border: none;
+            border-radius: 30px;
+            padding: 14px 48px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .modal-btn:hover {
+            background: #fff;
+            transform: scale(1.03);
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+        }
+
+        /* Status */
+        .status {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            font-size: 12px;
+            color: #888;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Webcam video -->
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <!-- Drawing canvas -->
+    <canvas id="drawCanvas"></canvas>
+
+    <!-- Camera badge -->
+    <div class="camera-badge">
+        <span class="status-dot"></span>
+        Camera ON
+    </div>
+
+    <!-- Mode label -->
+    <div class="mode-label">Live — Using hand gestures</div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-label">COLORS</div>
+        <div class="color-grid" id="colorGrid"></div>
+
+        <div class="sidebar-label" style="margin-top:12px">THICKNESS</div>
+        <div class="neon-star" id="neonStar">✱</div>
+        <div class="slider-section">
+            <input type="range" min="1" max="40" value="6" class="slider" id="brushSlider">
+            <div class="slider-value" id="brushValue">6px</div>
+        </div>
+
+        <div class="sidebar-label" style="margin-top:12px">GLOW</div>
+        <div class="slider-section">
+            <input type="range" min="0" max="1" step="0.05" value="0.6" class="slider" id="glowSlider">
+            <div class="slider-value" id="glowValue">60%</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="icon-row">
+            <button class="icon-btn" onclick="undo()" title="Undo">↩</button>
+            <button class="icon-btn" onclick="clear()" title="Clear">🗑</button>
+            <button class="icon-btn" id="eraserBtn" onclick="toggleEraser()" title="Eraser">⊘</button>
+            <button class="icon-btn" onclick="save()" title="Save">💾</button>
+        </div>
+    </div>
+
+    <!-- Bottom toggle -->
+    <button class="bottom-toggle" onclick="toggleHand()">
+        <span>👋</span>
+        <span id="handLabel">SHOW HAND</span>
+    </button>
+
+    <!-- Flash message -->
+    <div class="flash-msg" id="flashMsg"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-card">
+            <div class="modal-logo">A</div>
+            <div class="modal-title">How to Play</div>
+            <div class="gesture-cards">
+                <div class="gesture-card">
+                    <div class="emoji">☝️</div>
+                    <div><div class="g-name">Draw</div><div class="g-desc">Point index finger to draw</div></div>
+                </div>
+                <div class="gesture-card">
+                    <div class="emoji">✋</div>
+                    <div><div class="g-name">Erase</div><div class="g-desc">Sweep open palm to erase</div></div>
+                </div>
+                <div class="gesture-card">
+                    <div class="emoji">🤏</div>
+                    <div><div class="g-name">Move</div><div class="g-desc">Pinch to grab & reposition</div></div>
+                </div>
+                <div class="gesture-card">
+                    <div class="emoji">✌️</div>
+                    <div><div class="g-name">Idle</div><div class="g-desc">Close fist to rest</div></div>
+                </div>
+            </div>
+            <button class="modal-btn" onclick="closeModal()">Let's Go!</button>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status" id="status">Loading hand detection...</div>
+</div>
+
+<!-- MediaPipe & TensorFlow -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest"></script>
+
+<script>
+const COLORS = [
+    { name: 'Cyan', hex: '#00f5ff', g: '0,245,255' },
+    { name: 'Green', hex: '#22ff44', g: '34,255,68' },
+    { name: 'Magenta', hex: '#ff22cc', g: '255,34,204' },
+    { name: 'Blue', hex: '#4488ff', g: '68,136,255' },
+    { name: 'Lime', hex: '#aaff00', g: '170,255,0' },
+    { name: 'Pink', hex: '#ff4488', g: '255,68,136' },
+    { name: 'Yellow', hex: '#ffdd00', g: '255,221,0' },
+    { name: 'Purple', hex: '#bb44ff', g: '187,68,255' },
+    { name: 'White', hex: '#ffffff', g: '255,255,255' },
+    { name: 'Slate', hex: '#667788', g: '102,119,136' },
+];
+
+let colorIdx = 0, brushSize = 6, glowAmount = 0.6;
+let isDrawing = false, isEraser = false;
+let lastX = 0, lastY = 0;
+let undoStack = [], redoStack = [];
+let handDetector = null;
+let showHand = true;
+
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const video = document.getElementById('webcam');
+
+// Setup canvas
+function setupCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+setupCanvas();
+window.addEventListener('resize', setupCanvas);
+
+// Build color palette
+function buildPalette() {
+    const grid = document.getElementById('colorGrid');
+    COLORS.forEach((c, i) => {
+        const dot = document.createElement('button');
+        dot.className = `color-dot${i === 0 ? ' active' : ''}`;
+        dot.style.background = c.hex;
+        dot.style.boxShadow = `0 0 8px rgba(${c.g},0.4)`;
+        dot.onclick = () => selectColor(i);
+        grid.appendChild(dot);
+    });
+}
+
+function selectColor(i) {
+    colorIdx = i;
+    isEraser = false;
+    document.getElementById('eraserBtn').style.background = '';
+    document.querySelectorAll('.color-dot').forEach((d, j) => d.classList.toggle('active', j === i));
+    updateNeonStar();
+    flash(COLORS[i].name, COLORS[i].hex);
+}
+
+function updateNeonStar() {
+    const star = document.getElementById('neonStar');
+    star.style.color = COLORS[colorIdx].hex;
+    star.style.filter = `drop-shadow(0 0 8px rgba(${COLORS[colorIdx].g},0.7))`;
+}
+
+// Drawing functions
+function drawNeonLine(x1, y1, x2, y2) {
+    const c = COLORS[colorIdx];
+    if (glowAmount > 0.05) {
+        ctx.shadowColor = c.hex;
+        ctx.shadowBlur = 8 + glowAmount * 30;
+        ctx.strokeStyle = c.hex;
+        ctx.lineWidth = brushSize * 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 0.35 + glowAmount * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    }
+    ctx.shadowColor = c.hex;
+    ctx.shadowBlur = 4 + glowAmount * 12;
+    ctx.strokeStyle = c.hex;
+    ctx.lineWidth = brushSize * 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+}
+
+// Undo/Redo
+function saveState() {
+    undoStack.push(canvas.toDataURL());
+    if (undoStack.length > 20) undoStack.shift();
+    redoStack = [];
+}
+
+function undo() {
+    if (undoStack.length <= 1) return;
+    redoStack.push(undoStack.pop());
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+    };
+    img.src = undoStack[undoStack.length - 1];
+    flash('Undo', '#7bd');
+}
+
+function redo() {
+    if (!redoStack.length) return;
+    const s = redoStack.pop();
+    undoStack.push(s);
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+    };
+    img.src = s;
+    flash('Redo', '#7db');
+}
+
+function clear() {
+    saveState();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    flash('Cleared', '#ff5566');
+}
+
+function save() {
+    const link = document.createElement('a');
+    link.download = `air-drawing_${Date.now()}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+    flash('Saved!', '#4ade80');
+}
+
+function toggleEraser() {
+    isEraser = !isEraser;
+    document.getElementById('eraserBtn').style.background = isEraser ? 'rgba(255,100,100,0.1)' : '';
+    flash(isEraser ? 'Eraser ON' : 'Eraser OFF', isEraser ? '#ff6666' : '#4ade80');
+}
+
+function toggleHand() {
+    showHand = !showHand;
+    document.getElementById('handLabel').textContent = showHand ? 'SHOW HAND' : 'HIDE HAND';
+    flash(showHand ? 'Hand Visible' : 'Hand Hidden', '#aaa');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+}
+
+let flashTimer;
+function flash(text, color) {
+    const el = document.getElementById('flashMsg');
+    el.textContent = text;
+    el.style.color = color;
+    el.classList.add('visible');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => el.classList.remove('visible'), 1000);
+}
+
+// Event listeners
+document.getElementById('brushSlider').addEventListener('input', (e) => {
+    brushSize = parseInt(e.target.value);
+    document.getElementById('brushValue').textContent = brushSize + 'px';
+});
+
+document.getElementById('glowSlider').addEventListener('input', (e) => {
+    glowAmount = parseFloat(e.target.value);
+    document.getElementById('glowValue').textContent = Math.round(glowAmount * 100) + '%';
+});
+
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k >= '1' && k <= '9' && parseInt(k) <= COLORS.length) selectColor(parseInt(k) - 1);
+    if (k === '+' || k === '=') brushSize = Math.min(brushSize + 2, 40);
+    if (k === '-') brushSize = Math.max(brushSize - 2, 1);
+    if (k === 'z') undo();
+    if (k === 'y') redo();
+    if (k === 'c') clear();
+    if (k === 's') { e.preventDefault(); save(); }
+    if (k === 'e') toggleEraser();
+});
+
+// Initialize MediaPipe Hand Tracking
+async function initHandTracking() {
+    const { HandLandmarker, FilesetResolver } = window;
+
+    const filesetResolver = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    );
+
+    handDetector = await HandLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+        },
+        numHands: 1,
+        minHandDetectionConfidence: 0.75,
+        minTrackingConfidence: 0.70,
+        runningMode: 'VIDEO'
+    });
+
+    document.getElementById('status').textContent = 'Ready - Allow camera access';
+
+    // Start webcam
+    navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+        .then(stream => {
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                document.getElementById('status').style.display = 'none';
+                detectFrame();
+            };
+        })
+        .catch(err => {
+            document.getElementById('status').textContent = 'Camera error: ' + err.message;
+        });
+}
+
+// Detection loop
+function detectFrame() {
+    if (!video.videoWidth || !handDetector) {
+        requestAnimationFrame(detectFrame);
+        return;
+    }
+
+    const results = handDetector.detectForVideo(video, performance.now());
+
+    // Draw on canvas based on detection
+    if (results.landmarks.length > 0) {
+        const landmarks = results.landmarks[0];
+        const indexTip = landmarks[8];
+        const thumbTip = landmarks[4];
+
+        const ix = indexTip.x * canvas.width;
+        const iy = indexTip.y * canvas.height;
+
+        // Simple gesture: if index tip is isolated, draw
+        const isIndexUp = indexTip.y < landmarks[6].y;
+        const isFingersDown = landmarks[12].y > landmarks[10].y;
+
+        if (isIndexUp && isFingersDown) {
+            if (!isDrawing) {
+                saveState();
+                isDrawing = true;
+            }
+            if (lastX > 0) {
+                drawNeonLine(lastX, lastY, ix, iy);
+            }
+            lastX = ix;
+            lastY = iy;
+        } else {
+            isDrawing = false;
+            lastX = lastY = 0;
+        }
+    }
+
+    requestAnimationFrame(detectFrame);
+}
+
+// Startup
+buildPalette();
+updateNeonStar();
+saveState();
+initHandTracking();
+</script>
+
+</body>
+</html>
