@@ -1,12 +1,7 @@
 {
   "framework": null,
-  "public": "public",
-  "buildCommand": null,
-  "outputDirectory": null,
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/public/index.html"
-    }
-  ]
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "trailingSlash": false
 }

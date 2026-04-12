@@ -1,0 +1,18 @@
+# Ignore everything except public/ and vercel.json
+node_modules
+.next
+pages
+components
+styles
+api
+venv
+__pycache__
+*.py
+*.txt
+*.md
+.devcontainer
+.DS_Store
+preview.html
+package.json
+package-lock.json
+next.config.js
